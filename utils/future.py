@@ -21,6 +21,12 @@ class Future:
             return self._result
         raise InvalidStateError
 
+    def done(self):
+        return self._done
+
+    def exception(self):
+        return self._exception if self._done else None
+
     def add_finished_callback(self, callback):
         if self._done:
             callback(self)

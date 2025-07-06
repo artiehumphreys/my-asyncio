@@ -1,6 +1,6 @@
 from typing import Any, Coroutine, Optional
 from future import Future
-import exceptions
+from exceptions import CancelledError
 
 
 class Task(Future):
@@ -22,9 +22,31 @@ class Task(Future):
         self._loop = loop
         # TODO: enqueue task into event loop
 
-    def _step(self, future: Optional[Future] = None) -> None:
+    def _step(self, waited: Optional[Future] = None) -> None:
         """Advance the wrapped coroutine by one step."""
+        if self._done:
+            return
+
         try:
-            pass
-        except:
-            pass
+            # step coroutine forward
+            if waited is None:
+                # first entry
+                next_awaitable = self._coroutine.send(None)
+            else:
+                # resume with either exception or result
+                if waited.exception() is not None:
+                    next_awaitable = self._coroutine.throw(waited.exception())
+                else:
+                    result = waited.result()
+                    next_awaitable = self._coroutine.send(result)
+
+        except StopIteration as stop:
+            # complete task
+            self.set_result(stop.value)
+
+        except CancelledError:
+            self.set_exception(CancelledError())
+
+        else:
+            # TODO: ensure that next_awaitable is a future.
+            next_awaitable.add_finished_callback(self._step)
