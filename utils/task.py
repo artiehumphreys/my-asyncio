@@ -50,3 +50,21 @@ class Task(Future):
         else:
             # TODO: ensure that next_awaitable is a future.
             next_awaitable.add_finished_callback(self._step)
+
+    def cancel(self):
+        if self.done():
+            return False
+
+        def _cancel_step(_):
+            try:
+                self._coroutine.throw(CancelledError())
+            except CancelledError:
+                self.set_exception(CancelledError())
+            except Exception as e:
+                self.set_exception(e)
+
+        # TODO: enqueue _cancel_step so that the error throwing and status
+        # updates are done  on the next iteration of event loop, not on the
+        # current one to not interrupt execution of another task.
+        # https://www.reddit.com/r/learnpython/comments/o5g1n8/are_exceptions_silenced_in_asyncio_how_do_you/
+        return True
