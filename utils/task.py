@@ -1,9 +1,12 @@
-from typing import Any, Coroutine, Optional
+from typing import Any, Coroutine, TypeVar, Generic
 from future import Future
 from exceptions import CancelledError
 
 
-class Task(Future):
+T = TypeVar("T", default=None)
+
+
+class Task(Future[T]):
     """
     Coroutine wrapper, extends Future (see future.py)
 
@@ -17,12 +20,12 @@ class Task(Future):
         loop: Any,
     ) -> None:
         super().__init__()
-        self.finished = False
-        self._coroutine = coroutine
+        self.finished: bool = False
+        self._coroutine: Coroutine[Any, None, None] = coroutine
         self._loop = loop
         # TODO: enqueue task into event loop
 
-    def _step(self, waited: Optional[Future] = None) -> None:
+    def _step(self, waited: Future[T] | None = None) -> None:
         """Advance the wrapped coroutine by one step."""
         if self._done:
             return
@@ -51,7 +54,7 @@ class Task(Future):
             # TODO: ensure that next_awaitable is a future.
             next_awaitable.add_finished_callback(self._step)
 
-    def cancel(self):
+    def cancel(self) -> bool:
         if self.done():
             return False
 
