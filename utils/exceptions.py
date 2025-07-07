@@ -39,6 +39,12 @@ class TaskAlreadyRunningError(TaskError):
 
 
 class TaskNotRunnableError(TaskError):
-    """
-    Raised if the Task cannot be started or resumed
-    """
+    """Raised if the Task cannot be started or resumed"""
+
+
+class QueueEmpty(Exception):
+    """Raised when calling get_nowait on an empty queue"""
+
+
+class QueueFull(Exception):
+    """Raised when calling put_nowait on a full queue"""
