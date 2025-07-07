@@ -42,9 +42,13 @@ class TaskNotRunnableError(TaskError):
     """Raised if the Task cannot be started or resumed"""
 
 
-class QueueEmpty(Exception):
+class QueueError(AsyncioError):
+    """Base error for queue-specific errors"""
+
+
+class QueueEmpty(QueueError):
     """Raised when calling get_nowait on an empty queue"""
 
 
-class QueueFull(Exception):
+class QueueFull(QueueError):
     """Raised when calling put_nowait on a full queue"""
