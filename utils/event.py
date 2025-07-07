@@ -34,6 +34,13 @@ class EventLoop:
         # add callable to queue to be invoked
         self._ready.put_nowait((callback, args))
 
+    def call_later(
+        self, callback: Callable[..., None], *args: Any, delay: float
+    ) -> None:
+        run_time = self.time() + delay
+        self._seq += 1
+        heapq.heappush(self._scheduled, (run_time, self._seq, callback, args))
+
     def create_task(self, coroutine: Coroutine[Any, Any, T]) -> Task[T]:
         task: Task[T] = Task(coroutine, loop=self)
         return task
