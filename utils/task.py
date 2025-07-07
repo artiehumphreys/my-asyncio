@@ -27,7 +27,7 @@ class Task(Future[T]):
 
     def _step(self, waited: Future[T] | None = None) -> None:
         """Advance the wrapped coroutine by one step."""
-        if self._done:
+        if self.done:
             return
 
         try:
@@ -37,10 +37,10 @@ class Task(Future[T]):
                 next_awaitable = self._coroutine.send(None)
             else:
                 # resume with either exception or result
-                if waited.exception() is not None:
-                    next_awaitable = self._coroutine.throw(waited.exception())
+                if waited.exception is not None:
+                    next_awaitable = self._coroutine.throw(waited.exception)
                 else:
-                    result = waited.result()
+                    result = waited.result
                     next_awaitable = self._coroutine.send(result)
 
         except StopIteration as stop:
@@ -55,7 +55,7 @@ class Task(Future[T]):
             next_awaitable.add_finished_callback(self._step)
 
     def cancel(self) -> bool:
-        if self.done():
+        if self.done:
             return False
 
         def _cancel_step(_):

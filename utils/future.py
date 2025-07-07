@@ -22,9 +22,11 @@ class Future(Generic[T]):
             return self._result
         raise InvalidStateError
 
+    @property
     def done(self) -> bool:
         return self._done
 
+    @property
     def exception(self) -> AsyncioError | None:
         return self._exception if self._done else None
 
