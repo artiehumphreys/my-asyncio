@@ -1,6 +1,7 @@
 from typing import Any, Coroutine, TypeVar, Generic
 from future import Future
 from exceptions import CancelledError
+from event import EventLoop
 
 
 T = TypeVar("T", default=None)
@@ -22,8 +23,9 @@ class Task(Future[T]):
         super().__init__()
         self.finished: bool = False
         self._coroutine: Coroutine[Any, None, None] = coroutine
-        self._loop = loop
-        # TODO: enqueue task into event loop
+        self._loop: EventLoop = loop
+        # enqueue task into event loop
+        self._loop.call_soon(self._step)
 
     def _step(self, waited: Future[T] | None = None) -> None:
         """Advance the wrapped coroutine by one step."""
@@ -66,8 +68,9 @@ class Task(Future[T]):
             except Exception as e:
                 self.set_exception(e)
 
-        # TODO: enqueue _cancel_step so that the error throwing and status
+        # enqueue _cancel_step so that the error throwing and status
         # updates are done  on the next iteration of event loop, not on the
         # current one to not interrupt execution of another task.
         # https://www.reddit.com/r/learnpython/comments/o5g1n8/are_exceptions_silenced_in_asyncio_how_do_you/
+        self._loop.call_soon(_cancel_step, None)
         return True
