@@ -2,6 +2,7 @@ from typing import Any, Coroutine, TypeVar, Generic
 from future import Future
 from exceptions import CancelledError
 from event import EventLoop
+from asyncio_utils import ensure_future
 
 
 T = TypeVar("T", default=None)
@@ -53,7 +54,8 @@ class Task(Future[T]):
             self.set_exception(CancelledError())
 
         else:
-            # TODO: ensure that next_awaitable is a future.
+            # ensure that next_awaitable is a future.
+            next_awaitable = ensure_future(next_awaitable, loop=self._loop)
             next_awaitable.add_finished_callback(self._step)
 
     def cancel(self) -> bool:
