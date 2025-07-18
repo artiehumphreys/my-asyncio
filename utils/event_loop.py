@@ -17,6 +17,8 @@ class EventLoop:
     def __init__(self) -> None:
         from .async_queue import Queue
 
+        self.begin = time.time()
+
         # queue of ready callbacks of the form (callback, args)
         self._ready: Queue[tuple[Callable[..., Any], tuple[Any, ...]]] = Queue(
             MAXSIZE, loop=self
@@ -34,7 +36,7 @@ class EventLoop:
         return self._stopped
 
     def time(self) -> float:
-        return time.time()
+        return time.time() - self.begin
 
     def call_soon(self, callback: Callable[..., None], *args: Any) -> None:
         # add callable to queue to be invoked

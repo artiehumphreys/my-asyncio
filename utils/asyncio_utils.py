@@ -17,3 +17,9 @@ def ensure_future(awaitable: Awaitable[T] | Future[T], *, loop: EventLoop) -> Fu
     raise TypeError(
         f"object provided is not a Future or Corotuine. Type: {type(awaitable).__name__}"
     )
+
+
+def sleep(delay: float = 1.0, *, loop: EventLoop) -> Future[None]:
+    fut = Future[None]()
+    loop.call_later(fut.set_result, None, delay=delay)
+    return fut
