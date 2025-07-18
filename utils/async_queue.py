@@ -1,14 +1,16 @@
 from typing import Deque, TypeVar
 from collections import deque
-from event import EventLoop
-from exceptions import QueueEmpty, QueueFull
-from future import Future
+
+from .event_loop import EventLoop
+from .exceptions import QueueEmpty, QueueFull
+from .future import Future
 
 
 T = TypeVar("T")
 
 
-class Queue(T):
+# https://peps.python.org/pep-0695/
+class Queue[T]:
     """
     Wrapper for FIFO double-ended queue, integrated with EventLoop.
 

@@ -1,8 +1,9 @@
-from typing import Any, Coroutine, TypeVar, Generic
-from future import Future
-from exceptions import CancelledError
-from event import EventLoop
-from asyncio_utils import ensure_future
+from __future__ import annotations
+from typing import Any, Coroutine, TypeVar
+
+from .future import Future
+from .exceptions import CancelledError
+from .asyncio_utils import ensure_future
 
 
 T = TypeVar("T", default=None)

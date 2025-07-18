@@ -1,14 +1,14 @@
 """A toy implementation of an asyncio Future object"""
 
-from typing import TypeVar, Generic, Callable, Generator, Self, Any
+from typing import TypeVar, Callable, Generator, Self, Any
 
-from exceptions import FutureAlreadyDoneError, InvalidStateError, AsyncioError
-
-# https://peps.python.org/pep-0696/
-T = TypeVar("T", default=None)
+from .exceptions import FutureAlreadyDoneError, InvalidStateError, AsyncioError
 
 
-class Future(Generic[T]):
+T = TypeVar("T")
+
+
+class Future[T]:
     """Type of awaitable that does not block code to be executed."""
 
     def __init__(self) -> None:

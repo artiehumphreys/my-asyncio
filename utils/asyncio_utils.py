@@ -1,8 +1,8 @@
 from collections.abc import Coroutine
 from typing import Awaitable, TypeVar
 
-from future import Future
-from event import EventLoop
+from .future import Future
+from .event_loop import EventLoop
 
 
 T = TypeVar("T")

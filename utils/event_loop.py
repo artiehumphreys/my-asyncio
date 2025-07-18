@@ -1,10 +1,12 @@
+from __future__ import annotations
+
+# defer type hint evaluation until it is needed
 import time
 import heapq
-from typing import Callable, Coroutine, TypeVar, Any
-from future import Future
-from task import Task
-from async_queue import Queue
-from utils.exceptions import QueueEmpty
+from typing import Any, Callable, Coroutine, TypeVar
+
+from .future import Future
+from .exceptions import QueueEmpty
 
 
 T = TypeVar("T")
@@ -13,8 +15,12 @@ MAXSIZE = 1024
 
 class EventLoop:
     def __init__(self) -> None:
+        from .async_queue import Queue
+
         # queue of ready callbacks of the form (callback, args)
-        self._ready: Queue[tuple[Callable[..., Any], tuple[Any, ...]]] = Queue()
+        self._ready: Queue[tuple[Callable[..., Any], tuple[Any, ...]]] = Queue(
+            MAXSIZE, loop=self
+        )
         # scheduled callbacks: min heap of (when, call order, callback, args)
         self._scheduled: list[
             tuple[float, int, Callable[..., None], tuple[Any, ...]]
@@ -42,6 +48,8 @@ class EventLoop:
         heapq.heappush(self._scheduled, (run_time, self._seq, callback, args))
 
     def create_task(self, coroutine: Coroutine[Any, Any, T]) -> Task[T]:
+        from .task import Task
+
         task: Task[T] = Task(coroutine, loop=self)
         return task
 
@@ -57,13 +65,11 @@ class EventLoop:
         return fut.result()
 
     def run_forever(self) -> None:
-        self._stopped = False
-        while not self.stopped:
-            now = self.time()
-            # add ready callbacks to be processed
-            while self._scheduled and self._scheduled[0][0] <= now:
-                _, _, callback, args = heapq.heappop(self._scheduled)
-                self.call_soon(callback, *args)
+        now = self.time()
+        # add ready callbacks to be processed
+        while self._scheduled and self._scheduled[0][0] <= now:
+            _, _, callback, args = heapq.heappop(self._scheduled)
+            self.call_soon(callback, *args)
 
         # process a single ready callback
         try:
