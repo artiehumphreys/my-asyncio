@@ -38,6 +38,9 @@ class EventLoop:
     def stopped(self) -> bool:
         return self._stopped
 
+    def stop(self) -> None:
+        self._stopped = True
+
     def time(self) -> float:
         return time.time() - self.begin
 

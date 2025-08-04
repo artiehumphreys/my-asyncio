@@ -21,7 +21,7 @@ class Task(Future[T]):
         self,
         coroutine: Coroutine[Any, T | None, T],
         *,
-        loop: Any,
+        loop: EventLoop | None,
     ) -> None:
         super().__init__()
         self.finished: bool = False

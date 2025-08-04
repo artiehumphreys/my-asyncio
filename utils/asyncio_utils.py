@@ -1,5 +1,4 @@
-from collections.abc import Coroutine
-from typing import Awaitable, TypeVar
+from typing import Any, Awaitable, Coroutine, TypeVar
 
 from .future import Future
 from .event_loop import EventLoop
@@ -8,7 +7,7 @@ from .event_loop import EventLoop
 T = TypeVar("T")
 
 
-def ensure_future(awaitable: Awaitable[T] | Future[T], *, loop: EventLoop) -> Future[T]:
+def ensure_future(awaitable: Awaitable[T], *, loop: EventLoop) -> Future[T]:
     # https://peps.python.org/pep-0492/
     if isinstance(awaitable, Future):
         return awaitable
@@ -23,3 +22,7 @@ def sleep(delay: float = 1.0, *, loop: EventLoop) -> Future[None]:
     fut = Future[None]()
     loop.call_later(fut.set_result, None, delay=delay)
     return fut
+
+
+def gather(*aws: Coroutine[Any, Any, T] | Future[T]) -> None:
+    pass
