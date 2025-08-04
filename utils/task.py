@@ -2,7 +2,8 @@ from __future__ import annotations
 from typing import Any, Coroutine, TypeVar
 
 from .future import Future
-from .exceptions import CancelledError
+from .event_loop import EventLoop
+from .exceptions import AsyncioError, CancelledError
 from .asyncio_utils import ensure_future
 
 
@@ -18,13 +19,13 @@ class Task(Future[T]):
 
     def __init__(
         self,
-        coroutine: Coroutine[Any, None, None],
+        coroutine: Coroutine[Any, T | None, T],
         *,
         loop: Any,
     ) -> None:
         super().__init__()
         self.finished: bool = False
-        self._coroutine: Coroutine[Any, None, None] = coroutine
+        self._coroutine: Coroutine[Any, T | None, T] = coroutine
         self._loop: EventLoop = loop
         # enqueue task into event loop
         self._loop.call_soon(self._step)
@@ -44,7 +45,7 @@ class Task(Future[T]):
                 if waited.exception is not None:
                     next_awaitable = self._coroutine.throw(waited.exception)
                 else:
-                    result = waited.result
+                    result = waited.result()
                     next_awaitable = self._coroutine.send(result)
 
         except StopIteration as stop:
@@ -57,7 +58,7 @@ class Task(Future[T]):
         else:
             # ensure that next_awaitable is a future.
             next_awaitable = ensure_future(next_awaitable, loop=self._loop)
-            next_awaitable.add_finished_callback(self._step)
+            next_awaitable.add_done_callback(self._step)
 
     def cancel(self) -> bool:
         if self.done:
@@ -68,8 +69,11 @@ class Task(Future[T]):
                 self._coroutine.throw(CancelledError())
             except CancelledError:
                 self.set_exception(CancelledError())
+            # pylint: disable=broad-exception-caught
             except Exception as e:
-                self.set_exception(e)
+                self.set_exception(AsyncioError(str(e)))
+            except BaseException as be:
+                self.set_exception(AsyncioError(f"Fatal: {be!r}"))
 
         # enqueue _cancel_step so that the error throwing and status
         # updates are done  on the next iteration of event loop, not on the

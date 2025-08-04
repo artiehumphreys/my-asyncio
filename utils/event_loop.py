@@ -3,10 +3,13 @@ from __future__ import annotations
 # defer type hint evaluation until it is needed
 import time
 import heapq
-from typing import Any, Callable, Coroutine, TypeVar
+from typing import Any, Callable, Coroutine, TypeVar, TYPE_CHECKING
 
 from .future import Future
 from .exceptions import QueueEmpty
+
+if TYPE_CHECKING:
+    from .task import Task
 
 
 T = TypeVar("T")
@@ -55,7 +58,7 @@ class EventLoop:
         task: Task[T] = Task(coroutine, loop=self)
         return task
 
-    def run_until_complete(self, fut: Future[T] | Callable[Any, Any, T]) -> T:
+    def run_until_complete(self, fut: Future[T] | Coroutine[Any, Any, T]) -> T:
         """
         Run the loop until the given Future or coroutine completes,
         then return its result.

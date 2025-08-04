@@ -1,6 +1,6 @@
 """A toy implementation of an asyncio Future object"""
 
-from typing import TypeVar, Callable, Generator, Self, Any
+from typing import Self, TypeVar, Callable, Generator, Any, cast
 
 from .exceptions import FutureAlreadyDoneError, InvalidStateError, AsyncioError
 
@@ -15,12 +15,14 @@ class Future[T]:
         self._done: bool = False
         self._exception: AsyncioError | None = None
         self._result: T | None = None
-        self._callbacks: list[Callable[[Future[T]], None]] = []
+        self._callbacks: list[Callable[[Self], None]] = []
 
     def result(self) -> T:
-        if self._done:
+        if not self._done:
+            raise InvalidStateError
+        if self._result is not None:
             return self._result
-        raise InvalidStateError
+        return cast(T, self._result)
 
     @property
     def done(self) -> bool:
@@ -30,7 +32,7 @@ class Future[T]:
     def exception(self) -> AsyncioError | None:
         return self._exception if self._done else None
 
-    def add_finished_callback(self, callback: Callable[[Self], None]) -> None:
+    def add_done_callback(self, callback: Callable[[Self], None]) -> None:
         if self._done:
             callback(self)
         else:
