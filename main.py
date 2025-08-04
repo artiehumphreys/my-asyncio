@@ -1,5 +1,5 @@
-from utils.asyncio_utils import sleep
-from utils.event_loop import EventLoop
+from asyncio import sleep
+from asyncio.event_loop import EventLoop
 
 
 async def hello(name: str, loop: EventLoop) -> str:

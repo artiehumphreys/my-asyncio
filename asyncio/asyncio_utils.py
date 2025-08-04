@@ -1,4 +1,4 @@
-from typing import Any, Awaitable, Coroutine, TypeVar
+from typing import Awaitable, Coroutine, TypeVar
 
 from .future import Future
 from .event_loop import EventLoop
@@ -16,13 +16,3 @@ def ensure_future(awaitable: Awaitable[T], *, loop: EventLoop) -> Future[T]:
     raise TypeError(
         f"object provided is not a Future or Corotuine. Type: {type(awaitable).__name__}"
     )
-
-
-def sleep(delay: float = 1.0, *, loop: EventLoop) -> Future[None]:
-    fut = Future[None]()
-    loop.call_later(fut.set_result, None, delay=delay)
-    return fut
-
-
-def gather(*aws: Coroutine[Any, Any, T] | Future[T]) -> None:
-    pass
