@@ -4,16 +4,26 @@ from __future__ import annotations
 import time
 import heapq
 from typing import Any, Callable, Coroutine, TypeVar, TYPE_CHECKING
-
-from .future import Future
 from .exceptions import QueueEmpty
 
 if TYPE_CHECKING:
-    from .task import Task
-
+    from .future import Task, Future
 
 T = TypeVar("T")
 MAXSIZE = 1024
+_current_loop: EventLoop | None = None
+
+
+def get_event_loop() -> EventLoop:
+    global _current_loop
+    if not _current_loop:
+        _current_loop = EventLoop()
+    return _current_loop
+
+
+def set_event_loop(loop: EventLoop) -> None:
+    global _current_loop
+    _current_loop = loop
 
 
 class EventLoop:
@@ -56,7 +66,7 @@ class EventLoop:
         heapq.heappush(self._scheduled, (run_time, self._seq, callback, args))
 
     def create_task(self, coroutine: Coroutine[Any, Any, T]) -> Task[T]:
-        from .task import Task
+        from .future import Task
 
         task: Task[T] = Task(coroutine, loop=self)
         return task
@@ -66,6 +76,8 @@ class EventLoop:
         Run the loop until the given Future or coroutine completes,
         then return its result.
         """
+        from .future import Future
+
         if not isinstance(fut, Future):
             fut = self.create_task(fut)
         while not fut.done:

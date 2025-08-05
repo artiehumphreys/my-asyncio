@@ -1,9 +1,23 @@
 """A toy implementation of an asyncio Future object"""
 
-from typing import Self, TypeVar, Callable, Generator, Any, cast
-
-from .exceptions import FutureAlreadyDoneError, InvalidStateError, AsyncioError
-
+from __future__ import annotations
+from typing import (
+    Any,
+    Callable,
+    cast,
+    Coroutine,
+    Generator,
+    Self,
+    TypeVar,
+    TYPE_CHECKING,
+)
+from .event_loop import get_event_loop
+from .exceptions import (
+    AsyncioError,
+    CancelledError,
+    FutureAlreadyDoneError,
+    InvalidStateError,
+)
 
 T = TypeVar("T")
 
@@ -56,3 +70,56 @@ class Future[T]:
         if not self._done:
             yield self
         return self.result()
+
+
+class Task(Future[T]):
+    """
+    Coroutine wrapper, extends Future (see future.py)
+
+    https://bbc.github.io/cloudfit-public-docs/asyncio/asyncio-part-2.html
+    """
+
+    def __init__(
+        self,
+        coroutine: Coroutine[Any, T | None, T],
+        *,
+        loop: EventLoop | None,
+    ) -> None:
+        super().__init__()
+        self.finished: bool = False
+        self._coroutine: Coroutine[Any, T | None, T] = coroutine
+        self._loop: EventLoop = loop or get_event_loop()
+        # enqueue task into event loop
+        self._loop.call_soon(self._step)
+
+    def _step(self, waited: Future[T] | None = None) -> None:
+        """Advance the wrapped coroutine by one step."""
+        if self.done:
+            return
+
+        try:
+            # step coroutine forward
+            if waited is None:
+                # first entry
+                next_awaitable = self._coroutine.send(None)
+            else:
+                # resume with either exception or result
+                if waited.exception is not None:
+                    next_awaitable = self._coroutine.throw(waited.exception)
+                else:
+                    result = waited.result()
+                    next_awaitable = self._coroutine.send(result)
+
+        except StopIteration as stop:
+            # complete task
+            self.set_result(stop.value)
+
+        except CancelledError:
+            self.set_exception(CancelledError())
+
+        else:
+            from .tasks import ensure_future
+
+            # ensure that next_awaitable is a future.
+            next_awaitable = ensure_future(next_awaitable, loop=self._loop)
+            next_awaitable.add_done_callback(self._step)
