@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import Any, Coroutine, Self, TypeVar
-from .event_loop import EventLoop
+from .event_loop import EventLoop, get_event_loop
 
 T = TypeVar("T")
 
@@ -27,7 +27,7 @@ class Runner:
         if self._state is _State.INITIALIZED:
             return
         if self._state is _State.CLOSED or self._state is None:
-            self._loop = EventLoop()
+            self._loop = get_event_loop()
             self._state = _State.INITIALIZED
         else:
             raise RuntimeError(f"Invalid Runner state {self._state}.")

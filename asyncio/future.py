@@ -19,6 +19,9 @@ from .exceptions import (
     InvalidStateError,
 )
 
+if TYPE_CHECKING:
+    from .event_loop import EventLoop
+
 T = TypeVar("T")
 
 
@@ -121,5 +124,5 @@ class Task(Future[T]):
             from .tasks import ensure_future
 
             # ensure that next_awaitable is a future.
-            next_awaitable = ensure_future(next_awaitable, loop=self._loop)
+            next_awaitable = ensure_future(next_awaitable)
             next_awaitable.add_done_callback(self._step)
