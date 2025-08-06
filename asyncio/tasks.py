@@ -1,3 +1,5 @@
+"""Task-level utilities"""
+
 from typing import Any, Awaitable, Coroutine, TypeVar
 from .future import Future
 from .event_loop import EventLoop, get_event_loop
@@ -7,6 +9,7 @@ T = TypeVar("T", default=None)
 
 
 def ensure_future(awaitable: Awaitable[T], loop: EventLoop | None = None) -> Future[T]:
+    """Wrap an awaitable in a Future, scheduling coroutines as Tasks."""
     # https://peps.python.org/pep-0492/
     loop = loop or get_event_loop()
     if isinstance(awaitable, Future):
@@ -19,6 +22,7 @@ def ensure_future(awaitable: Awaitable[T], loop: EventLoop | None = None) -> Fut
 
 
 async def sleep(delay: float = 1.0, loop: EventLoop | None = None) -> None:
+    """Pause execution for the specified delay without blocking the OS thread"""
     loop = loop or get_event_loop()
     fut = Future[None]()
     if delay <= 0.0:
@@ -29,6 +33,7 @@ async def sleep(delay: float = 1.0, loop: EventLoop | None = None) -> None:
 
 
 def run(coroutine: Coroutine[Any, Any, T]) -> T:
+    """Execute a coroutine to completion on a fresh EventLoop, then close it"""
     with Runner() as runner:
         return runner.run(coroutine=coroutine)
 
@@ -38,6 +43,7 @@ def gather(
     return_exceptions: bool = True,
     loop: EventLoop | None = None,
 ) -> Future[list[T | Exception]]:
+    """Execute multiple coroutines simultaneously and collect their results"""
     loop = loop or get_event_loop()
     futures = [ensure_future(a, loop=loop) for a in aws]
     out = Future()

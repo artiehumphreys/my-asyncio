@@ -1,4 +1,4 @@
-"""A toy implementation of an asyncio Future object"""
+"""A toy implementation of the asyncio Future and Task objects"""
 
 from __future__ import annotations
 from typing import (
@@ -11,9 +11,9 @@ from typing import (
     TypeVar,
     TYPE_CHECKING,
 )
+
 from .event_loop import get_event_loop
 from .exceptions import (
-    AsyncioError,
     CancelledError,
     FutureAlreadyDoneError,
     InvalidStateError,
@@ -26,7 +26,12 @@ T = TypeVar("T")
 
 
 class Future[T]:
-    """Type of awaitable that does not block code to be executed."""
+    """
+    An awaitable placeholder for a result to be set later.
+
+    Futures can be awaited with await fut, and callbacks can be
+    registered with add_done_callback.
+    """
 
     def __init__(self) -> None:
         self._done: bool = False
@@ -35,6 +40,7 @@ class Future[T]:
         self._callbacks: list[Callable[[Self], None]] = []
 
     def result(self) -> T:
+        """Return result if the Future has completed, otherwise raise InvalidStateError"""
         if not self._done:
             raise InvalidStateError
         if self._result is not None:
@@ -43,25 +49,34 @@ class Future[T]:
 
     @property
     def done(self) -> bool:
+        """Return True if the Future is completed"""
         return self._done
 
     @property
     def exception(self) -> BaseException | None:
+        """Return the exception raised during execution of the coroutine otherwise None"""
         return self._exception if self._done else None
 
     def add_done_callback(self, callback: Callable[[Self], None]) -> None:
+        """
+        Register the given callback to be invoked when the future completes.
+
+        If the future is already done, the callback is called immediately
+        """
         if self._done:
             callback(self)
         else:
             self._callbacks.append(callback)
 
     def set_result(self, res: T) -> None:
+        """Mark the future as done and set the result of the Future to res"""
         self._done = True
         self._result = res
         for callback in self._callbacks:
             callback(self)
 
     def set_exception(self, exception: BaseException) -> None:
+        """Mark the Future as done with an error and store the exception"""
         if self._done:
             raise FutureAlreadyDoneError("Future is already done")
         self._done = True
@@ -70,6 +85,7 @@ class Future[T]:
             callback(self)
 
     def __await__(self) -> Generator[Any, None, T]:
+        """Yield control to the EventLoop until this Future is done, then return its result."""
         if not self._done:
             yield self
         return self.result()
@@ -77,7 +93,11 @@ class Future[T]:
 
 class Task(Future[T]):
     """
-    Coroutine wrapper, extends Future (see future.py)
+    Wraps and drives a coroutine, completing when it returns.
+
+    This extends Future[T] and schedules its coroutine on the loop
+    via successive calls to _step(). Cancellation ejects a
+    CancelledError into the coroutine.
 
     https://bbc.github.io/cloudfit-public-docs/asyncio/asyncio-part-2.html
     """
@@ -96,7 +116,10 @@ class Task(Future[T]):
         self._loop.call_soon(self._step)
 
     def _step(self, waited: Future[T] | None = None) -> None:
-        """Advance the wrapped coroutine by one step."""
+        """
+        Advance the wrapped coroutine by one step, sending in the awaited result
+        or throwing in any exception.
+        """
         if self.done:
             return
 
