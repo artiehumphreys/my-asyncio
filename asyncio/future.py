@@ -30,7 +30,7 @@ class Future[T]:
 
     def __init__(self) -> None:
         self._done: bool = False
-        self._exception: AsyncioError | None = None
+        self._exception: BaseException | None = None
         self._result: T | None = None
         self._callbacks: list[Callable[[Self], None]] = []
 
@@ -46,7 +46,7 @@ class Future[T]:
         return self._done
 
     @property
-    def exception(self) -> AsyncioError | None:
+    def exception(self) -> BaseException | None:
         return self._exception if self._done else None
 
     def add_done_callback(self, callback: Callable[[Self], None]) -> None:
@@ -61,7 +61,7 @@ class Future[T]:
         for callback in self._callbacks:
             callback(self)
 
-    def set_exception(self, exception: AsyncioError) -> None:
+    def set_exception(self, exception: BaseException) -> None:
         if self._done:
             raise FutureAlreadyDoneError("Future is already done")
         self._done = True

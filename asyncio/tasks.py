@@ -1,14 +1,14 @@
 from typing import Any, Awaitable, Coroutine, TypeVar
 from .future import Future
-from .event_loop import get_event_loop
+from .event_loop import EventLoop, get_event_loop
 from .runner import Runner
 
 T = TypeVar("T", default=None)
 
 
-def ensure_future(awaitable: Awaitable[T]) -> Future[T]:
+def ensure_future(awaitable: Awaitable[T], loop: EventLoop | None = None) -> Future[T]:
     # https://peps.python.org/pep-0492/
-    loop = get_event_loop()
+    loop = loop or get_event_loop()
     if isinstance(awaitable, Future):
         return awaitable
     if isinstance(awaitable, Coroutine):
@@ -18,11 +18,14 @@ def ensure_future(awaitable: Awaitable[T]) -> Future[T]:
     )
 
 
-def sleep(delay: float = 1.0) -> Future[None]:
-    loop = get_event_loop()
+async def sleep(delay: float = 1.0, loop: EventLoop | None = None) -> None:
+    loop = loop or get_event_loop()
     fut = Future[None]()
-    loop.call_later(fut.set_result, None, delay=delay)
-    return fut
+    if delay <= 0.0:
+        loop.call_soon(fut.set_result, None)
+    else:
+        loop.call_later(fut.set_result, None, delay=delay)
+    await fut
 
 
 def run(coroutine: Coroutine[Any, Any, T]) -> T:
@@ -30,5 +33,44 @@ def run(coroutine: Coroutine[Any, Any, T]) -> T:
         return runner.run(coroutine=coroutine)
 
 
-def gather(*aws: Coroutine[Any, Any, T] | Future[T]) -> None:
-    pass
+def gather(
+    *aws: Coroutine[Any, Any, T] | Future[T],
+    return_exceptions: bool = True,
+    loop: EventLoop | None = None,
+) -> Future[list[T | Exception]]:
+    loop = loop or get_event_loop()
+    futures = [ensure_future(a, loop=loop) for a in aws]
+    out = Future()
+    n = len(futures)
+
+    if n == 0:
+        out.set_result([])
+        return out
+
+    results: list[T | Exception | None] = [None for _ in range(n)]
+    remaining = n
+
+    def make_callback(idx: int):
+        def _on_done(fut: Future[T]) -> None:
+            nonlocal remaining
+            if out.done:
+                return
+            try:
+                results[idx] = fut.result()
+            except Exception as e:
+                if return_exceptions:
+                    results[idx] = e
+                else:
+                    out.set_exception(e)
+                    return
+
+            remaining -= 1
+            if remaining == 0:
+                out.set_result(results.copy())
+
+        return _on_done
+
+    for i, fut in enumerate(futures):
+        fut.add_done_callback(make_callback(i))
+
+    return out

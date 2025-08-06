@@ -22,7 +22,7 @@ async def test_sleep() -> None:
 
     res = await t1
     await t2
-    print(f"{loop.time():.3f}: Task returned: {res}")
+    print(f"{loop.time():.4f}: Task returned: {res}")
 
 
 if __name__ == "__main__":
