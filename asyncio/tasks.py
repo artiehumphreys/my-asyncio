@@ -1,6 +1,6 @@
 """Task-level utilities"""
 
-from typing import Any, Awaitable, Coroutine, Literal, Sequence, TypeVar
+from typing import Any, AsyncIterator, Awaitable, Coroutine, Literal, Sequence, TypeVar
 from .future import Future
 from .event_loop import EventLoop, get_event_loop
 from .runner import Runner
@@ -8,7 +8,9 @@ from .runner import Runner
 T = TypeVar("T", default=None)
 
 
-def ensure_future(awaitable: Awaitable[T], loop: EventLoop | None = None) -> Future[T]:
+def ensure_future(
+    awaitable: Awaitable[T], *, loop: EventLoop | None = None
+) -> Future[T]:
     """Wrap an awaitable in a Future, scheduling coroutines as Tasks."""
     # https://peps.python.org/pep-0492/
     loop = loop or get_event_loop()
@@ -90,7 +92,7 @@ ReturnWhen = Literal["ALL_COMPLETED", "FIRST_COMPLETED", "FIRST_EXCEPTION"]
 
 
 def wait(
-    aws: Sequence[Awaitable[T] | Future[T]],
+    aws: Sequence[Coroutine[Any, Any, T] | Future[T]],
     *,
     return_when: ReturnWhen = ALL_COMPLETED,
     loop: EventLoop | None = None,
@@ -103,6 +105,9 @@ def wait(
     done = set()
     pending = set(futs)
 
+    def _set_result() -> None:
+        out.set_result((set(done), set(pending)))
+
     def _on_done(f: Future[T]) -> None:
         nonlocal done, pending
         if out.done:
@@ -112,16 +117,37 @@ def wait(
         done.add(f)
 
         if return_when == FIRST_COMPLETED and done:
-            out.set_result((set(done), set(pending)))
+            _set_result()
         elif return_when == FIRST_EXCEPTION:
             try:
                 _ = f.result()
             except Exception:
-                out.set_result((set(done), set(pending)))
+                _set_result()
         elif return_when == ALL_COMPLETED and not pending:
-            out.set_result((set(done), set(pending)))
+            _set_result()
 
     for fut in futs:
         fut.add_done_callback(_on_done)
 
     return out
+
+
+async def as_completed(
+    aws: Sequence[Coroutine[Any, Any, T] | Future[T]], *, loop: EventLoop | None = None
+) -> AsyncIterator[Future[T]]:
+    """Yield each Future as it is completed, in order of completion"""
+    loop = loop or get_event_loop()
+    futs = [ensure_future(aw) for aw in aws]
+    n = len(futs)
+    q = []
+
+    def _on_done(f: Future[T]) -> None:
+        q.append(f)
+
+    for fut in futs:
+        fut.add_done_callback(_on_done)
+
+    for _ in range(n):
+        while not q:
+            await sleep(0)
+        yield q.pop(0)
