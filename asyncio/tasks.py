@@ -1,6 +1,6 @@
 """Task-level utilities"""
 
-from typing import Any, Awaitable, Coroutine, TypeVar
+from typing import Any, Awaitable, Coroutine, Literal, Sequence, TypeVar
 from .future import Future
 from .event_loop import EventLoop, get_event_loop
 from .runner import Runner
@@ -78,5 +78,50 @@ def gather(
 
     for i, fut in enumerate(futures):
         fut.add_done_callback(make_callback(i))
+
+    return out
+
+
+ALL_COMPLETED: Literal["ALL_COMPLETED"] = "ALL_COMPLETED"
+FIRST_COMPLETED: Literal["FIRST_COMPLETED"] = "FIRST_COMPLETED"
+FIRST_EXCEPTION: Literal["FIRST_EXCEPTION"] = "FIRST_EXCEPTION"
+
+ReturnWhen = Literal["ALL_COMPLETED", "FIRST_COMPLETED", "FIRST_EXCEPTION"]
+
+
+def wait(
+    aws: Sequence[Awaitable[T] | Future[T]],
+    *,
+    return_when: ReturnWhen = ALL_COMPLETED,
+    loop: EventLoop | None = None,
+) -> Future[tuple[set[Future[T]], set[Future[T]]]]:
+    """Returns a future that yields (done, pending) sets of Futures."""
+    loop = loop or get_event_loop
+    futs = [ensure_future(aw) for aw in aws]
+    out = Future()
+
+    done = set()
+    pending = set(futs)
+
+    def _on_done(f: Future[T]) -> None:
+        nonlocal done, pending
+        if out.done:
+            return
+
+        pending.discard(f)
+        done.add(f)
+
+        if return_when == FIRST_COMPLETED and done:
+            out.set_result((set(done), set(pending)))
+        elif return_when == FIRST_EXCEPTION:
+            try:
+                _ = f.result()
+            except Exception:
+                out.set_result((set(done), set(pending)))
+        elif return_when == ALL_COMPLETED and not pending:
+            out.set_result((set(done), set(pending)))
+
+    for fut in futs:
+        fut.add_done_callback(_on_done)
 
     return out
