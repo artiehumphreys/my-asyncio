@@ -43,6 +43,8 @@ class Future[T]:
         """Return result if the Future has completed, otherwise raise InvalidStateError"""
         if not self._done:
             raise InvalidStateError
+        if self._exception is not None:
+            raise self._exception
         if self._result is not None:
             return self._result
         return cast(T, self._result)
