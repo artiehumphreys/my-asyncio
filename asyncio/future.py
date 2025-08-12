@@ -35,9 +35,18 @@ class Future[T]:
 
     def __init__(self) -> None:
         self._done: bool = False
+        self._cancelled: bool = False
         self._exception: BaseException | None = None
         self._result: T | None = None
         self._callbacks: list[Callable[[Self], None]] = []
+
+    def cancel(self) -> bool:
+        """Cancel the execution of this Future"""
+        if self._done:
+            return False
+        self._cancelled = True
+        self.set_exception(CancelledError())
+        return True
 
     def result(self) -> T:
         """Return result if the Future has completed, otherwise raise InvalidStateError"""
@@ -48,6 +57,11 @@ class Future[T]:
         if self._result is not None:
             return self._result
         return cast(T, self._result)
+
+    @property
+    def cancelled(self) -> bool:
+        """Return True if the Future was cancelled"""
+        return self._cancelled
 
     @property
     def done(self) -> bool:
@@ -112,10 +126,22 @@ class Task(Future[T]):
     ) -> None:
         super().__init__()
         self.finished: bool = False
+        self._cancel_requested = False
         self._coroutine: Coroutine[Any, T | None, T] = coroutine
+        self._waiting_on: Future[T] | None = None
         self._loop: EventLoop = loop or get_event_loop()
         # enqueue task into event loop
         self._loop.call_soon(self._step)
+
+    def cancel(self) -> bool:
+        if self.done:
+            return False
+        self._cancel_requested = True
+        if self._waiting_on is not None:
+            self._waiting_on.cancel()
+        else:
+            self._loop.call_soon(self._step)
+        return True
 
     def _step(self, waited: Future[T] | None = None) -> None:
         """
@@ -126,8 +152,12 @@ class Task(Future[T]):
             return
 
         try:
+            if self._cancel_requested:
+                # inject cancellation immediately at next resume
+                self._cancel_requested = False
+                next_awaitable = self._coroutine.throw(CancelledError())
             # step coroutine forward
-            if waited is None:
+            elif waited is None:
                 # first entry
                 next_awaitable = self._coroutine.send(None)
             else:
@@ -150,4 +180,5 @@ class Task(Future[T]):
 
             # ensure that next_awaitable is a future.
             next_awaitable = ensure_future(next_awaitable)
+            self._waiting_on = next_awaitable
             next_awaitable.add_done_callback(self._step)

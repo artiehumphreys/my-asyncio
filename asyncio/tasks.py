@@ -69,6 +69,9 @@ def gather(
                 if return_exceptions:
                     results[idx] = e
                 else:
+                    for j, other in enumerate(futures):
+                        if j != idx:
+                            other.cancel()
                     out.set_exception(e)
                     return
 
