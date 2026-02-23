@@ -22,7 +22,7 @@
 typedef struct {
   // heap ordered by (priority, time, insertion order)
   int16_t priority;
-  double scheduled_time;
+  double scheduled_time; // when callback should run
   uint64_t insertion_order;
   double insert_time;
   bool cancelled;
