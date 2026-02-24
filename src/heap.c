@@ -110,3 +110,27 @@ bool heap_push(PriorityHeap *h, int16_t priority, double scheduled_time,
 
   return true;
 }
+
+bool heap_pop(PriorityHeap *h, HeapItem *out) {
+  while (h->size > 0 && h->entries[0].cancelled) {
+    // skip cancelled callbacks
+    HeapItem *pop = &h->entries[0];
+    Py_XDECREF(pop->callback);
+    Py_XDECREF(pop->args);
+    h->size--;
+    if (h->size > 0)
+      sift_down(h->entries, h->size, 0);
+  }
+
+  if (h->size == 0)
+    return false;
+
+  *out = h->entries[0];
+  h->entries[0] = h->entries[h->size - 1];
+  h->size--;
+
+  if (h->size > 0)
+    sift_down(h->entries, h->size, 0);
+
+  return true;
+}
