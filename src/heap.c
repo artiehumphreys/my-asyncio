@@ -1,6 +1,7 @@
 #include "heap.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -19,6 +20,34 @@ static void swap(HeapItem *entries, size_t i, size_t j) {
   HeapItem tmp = entries[i];
   entries[i] = entries[j];
   entries[j] = tmp;
+}
+
+bool heap_init(PriorityHeap *h) {
+  // malloc since heap is initially small and for flexible reallocation
+  void *mem = malloc(HEAP_INITIAL_CAPACITY * sizeof(HeapItem));
+  if (mem == NULL)
+    return false;
+  HeapItem *items = (HeapItem *)mem;
+  h->entries = items;
+
+  h->size = 0;
+  h->capacity = HEAP_INITIAL_CAPACITY;
+  h->insert_counter = 0;
+  h->last_age_check = 0.0;
+
+  return true;
+}
+
+void heap_destroy(PriorityHeap *h) {
+  // release ownership of PyObjects so they may be garabage collected
+  for (size_t i = 0; i < h->size; ++i) {
+    Py_XDECREF(h->entries[i].callback);
+    Py_XDECREF(h->entries[i].args);
+  }
+  free(h->entries);
+  h->entries = NULL;
+  h->capacity = 0;
+  h->size = 0;
 }
 
 static void sift_up(HeapItem *entries, size_t idx) {
