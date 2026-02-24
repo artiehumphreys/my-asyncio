@@ -47,8 +47,8 @@ bool heap_push(PriorityHeap *h, int16_t priority, double scheduled_time,
 
 bool heap_pop(PriorityHeap *h, HeapItem *out);
 
-double heap_peek_time(PriorityHeap *h);
-size_t heap_size(PriorityHeap *h);
+double heap_peek_time(const PriorityHeap *h);
+size_t heap_size(const PriorityHeap *h);
 
 // Aging: bumps priority of entries waiting longer than AGE_THRESHOLD
 void heap_age(PriorityHeap *h, double now);

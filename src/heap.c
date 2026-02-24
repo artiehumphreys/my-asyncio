@@ -117,6 +117,7 @@ bool heap_pop(PriorityHeap *h, HeapItem *out) {
     HeapItem *pop = &h->entries[0];
     Py_XDECREF(pop->callback);
     Py_XDECREF(pop->args);
+    h->entries[0] = h->entries[h->size - 1];
     h->size--;
     if (h->size > 0)
       sift_down(h->entries, h->size, 0);
@@ -133,4 +134,35 @@ bool heap_pop(PriorityHeap *h, HeapItem *out) {
     sift_down(h->entries, h->size, 0);
 
   return true;
+}
+
+double heap_peek_time(const PriorityHeap *h) {
+  if (h->size == 0)
+    return -1.0;
+  const HeapItem *top = &h->entries[0];
+  return top->scheduled_time;
+}
+
+size_t heap_size(const PriorityHeap *h) { return h->size; }
+
+void heap_age(PriorityHeap *h, double now) {
+  if (now - h->last_age_check < AGE_INTERVAL)
+    return;
+
+  h->last_age_check = now;
+  bool needs_heapify = false;
+  for (size_t i = 0; i < h->size; ++i) {
+    double wait_time = now - h->entries[i].insert_time;
+    HeapItem *entry = &h->entries[i];
+    if (wait_time > AGE_INTERVAL && entry->priority > HIGHEST_PRIORITY) {
+      entry->priority--;
+      needs_heapify = true;
+    }
+  }
+
+  if (needs_heapify) {
+    for (size_t i = h->size / 2; i > 0; --i) {
+      sift_down(h->entries, h->size, 0);
+    }
+  }
 }
