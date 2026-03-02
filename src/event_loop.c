@@ -1,0 +1,66 @@
+#include "event_loop.h"
+#include "heap.h"
+
+#include <stdbool.h>
+#include <stdlib.h>
+#include <time.h>
+
+static double timespec_to_double(const struct timespec *ts) {
+  return ts->tv_sec + ts->tv_nsec / 1e9;
+}
+
+bool event_loop_init(EventLoop *e) {
+  if (!heap_init(&e->q))
+    return false;
+
+  e->running = true;
+
+  struct timespec start;
+  if (clock_gettime(CLOCK_MONOTONIC, &start) != 0)
+    return false;
+
+  e->start_time = timespec_to_double(&start);
+
+  return true;
+}
+
+void event_loop_destroy(EventLoop *e) {
+  heap_destroy(&e->q);
+  e->running = false;
+}
+
+bool event_loop_call_soon(EventLoop *e, PyObject *callback, PyObject *args,
+                          int16_t priority) {
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+    return false;
+
+  double current_time = timespec_to_double(&now);
+  if (!heap_push(&e->q, priority, current_time, current_time, callback, args))
+    return false;
+
+  return true;
+}
+
+bool event_loop_call_later(EventLoop *e, PyObject *callback, PyObject *args,
+                           double delay, int16_t priority) {
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+    return false;
+
+  double current_time = timespec_to_double(&now);
+  if (!heap_push(&e->q, priority, current_time + delay, current_time, callback,
+                 args))
+    return false;
+
+  return true;
+}
+
+double event_loop_time(EventLoop *e) {
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+    return -1.0;
+
+  double current_time = timespec_to_double(&now);
+  return current_time - e->start_time;
+}

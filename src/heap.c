@@ -154,15 +154,15 @@ void heap_age(PriorityHeap *h, double now) {
   for (size_t i = 0; i < h->size; ++i) {
     double wait_time = now - h->entries[i].insert_time;
     HeapItem *entry = &h->entries[i];
-    if (wait_time > AGE_INTERVAL && entry->priority > HIGHEST_PRIORITY) {
+    if (wait_time > AGE_THRESHOLD && entry->priority > HIGHEST_PRIORITY) {
       entry->priority--;
       needs_heapify = true;
     }
   }
 
   if (needs_heapify) {
-    for (size_t i = h->size / 2; i > 0; --i) {
-      sift_down(h->entries, h->size, 0);
+    for (size_t i = h->size / 2; i-- > 0;) {
+      sift_down(h->entries, h->size, h->size / 2 - 1 - i);
     }
   }
 }
