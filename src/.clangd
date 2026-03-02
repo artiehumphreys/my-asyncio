@@ -1,0 +1,7 @@
+CompileFlags:
+  Add:
+    - -xc
+    - -std=c17
+    - -Wall
+    - -Wextra
+    - -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14
