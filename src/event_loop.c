@@ -1,7 +1,6 @@
 #include "event_loop.h"
 #include "heap.h"
 
-#include <_time.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <time.h>
@@ -24,6 +23,8 @@ bool event_loop_init(EventLoop *e) {
 
   return true;
 }
+
+void event_loop_stop(EventLoop *e) { e->running = false; }
 
 void event_loop_destroy(EventLoop *e) {
   heap_destroy(&e->q);
@@ -98,4 +99,36 @@ bool event_loop_run_once(EventLoop *e) {
     PyErr_Print();
 
   return e->running;
+}
+
+void event_loop_run_forever(EventLoop *e) {
+  while (e->running) {
+    if (heap_size(&e->q) == 0) {
+      struct timespec sleep_ts = {0, 1e9}; // 1 ms sleep
+      nanosleep(&sleep_ts, NULL);
+      continue;
+    }
+
+    if (!event_loop_run_once(e))
+      break;
+
+    double next_time = heap_peek_time(&e->q);
+    if (next_time < 0)
+      continue;
+
+    // sleep until next task is due
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+      break;
+
+    double current_time = timespec_to_double(&now);
+    double wait_time = next_time - current_time;
+    if (wait_time > 0) {
+      struct timespec sleep_ts;
+      sleep_ts.tv_sec = (time_t)wait_time;
+      sleep_ts.tv_nsec = (long)((wait_time - sleep_ts.tv_sec) * 1e9);
+
+      nanosleep(&sleep_ts, NULL);
+    }
+  }
 }

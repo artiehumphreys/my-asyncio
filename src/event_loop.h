@@ -12,6 +12,7 @@ typedef struct {
 } EventLoop;
 
 bool event_loop_init(EventLoop *e);
+void event_loop_stop(EventLoop *e);
 void event_loop_destroy(EventLoop *e);
 
 bool event_loop_call_soon(EventLoop *e, PyObject *callback, PyObject *args,
@@ -21,5 +22,6 @@ bool event_loop_call_later(EventLoop *e, PyObject *callback, PyObject *args,
 
 double event_loop_time(const EventLoop *e);
 bool event_loop_run_once(EventLoop *e);
+void event_loop_run_forever(EventLoop *e);
 
 #endif
