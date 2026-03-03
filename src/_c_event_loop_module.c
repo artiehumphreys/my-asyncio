@@ -108,3 +108,77 @@ static PyObject *PyEventLoop_call_later(PyEventLoopObject *self,
 
   Py_RETURN_NONE;
 }
+
+// time() -> float: elapsed seconds since loop creation
+static PyObject *PyEventLoop_time(PyEventLoopObject *self,
+                                  PyObject *Py_UNUSED(ignored)) {
+  double t = event_loop_time(&self->loop);
+  if (t < 0.0) {
+    PyErr_SetString(PyExc_RuntimeError, "clock_gettime failed");
+    return NULL;
+  }
+  return PyFloat_FromDouble(t);
+}
+
+// run_once() -> bool: execute one ready callback
+static PyObject *PyEventLoop_run_once(PyEventLoopObject *self,
+                                      PyObject *Py_UNUSED(ignored)) {
+  bool result = event_loop_run_once(&self->loop);
+  if (PyErr_Occurred())
+    return NULL;
+  return PyBool_FromLong(result);
+}
+
+// stop(): set running = false so run_forever exits
+static PyObject *PyEventLoop_stop(PyEventLoopObject *self,
+                                  PyObject *Py_UNUSED(ignored)) {
+  event_loop_stop(&self->loop);
+  Py_RETURN_NONE;
+}
+
+// run_forever(): runs until stop() is called.
+// reimplemented here (instead of calling event_loop_run_forever) so we can
+// release the GIL during nanosleep — otherwise sleeping blocks all threads.
+static PyObject *PyEventLoop_run_forever(PyEventLoopObject *self,
+                                         PyObject *Py_UNUSED(ignored)) {
+  EventLoop *e = &self->loop;
+
+  while (e->running) {
+    if (heap_size(&e->q) == 0) {
+      struct timespec ts = {0, 1000000}; // 1ms idle sleep
+      Py_BEGIN_ALLOW_THREADS;
+      nanosleep(&ts, NULL);
+      Py_END_ALLOW_THREADS;
+      continue;
+    }
+
+    // run_once needs the GIL since it calls Python callbacks
+    bool ok = event_loop_run_once(e);
+    if (PyErr_Occurred())
+      return NULL;
+    if (!ok)
+      break;
+
+    // sleep until next scheduled item, releasing GIL during sleep
+    double next_time = heap_peek_time(&e->q);
+    if (next_time < 0)
+      continue;
+
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+      break;
+
+    double current = now.tv_sec + now.tv_nsec / 1e9;
+    double wait = next_time - current;
+    if (wait > 0) {
+      struct timespec sleep_ts;
+      sleep_ts.tv_sec = (time_t)wait;
+      sleep_ts.tv_nsec = (long)((wait - sleep_ts.tv_sec) * 1e9);
+      Py_BEGIN_ALLOW_THREADS;
+      nanosleep(&sleep_ts, NULL);
+      Py_END_ALLOW_THREADS;
+    }
+  }
+
+  Py_RETURN_NONE;
+}
