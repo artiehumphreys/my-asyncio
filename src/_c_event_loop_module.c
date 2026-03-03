@@ -182,3 +182,59 @@ static PyObject *PyEventLoop_run_forever(PyEventLoopObject *self,
 
   Py_RETURN_NONE;
 }
+
+// method table: maps Python method names to C functions
+static PyMethodDef PyEventLoop_methods[] = {
+    {"call_soon", (PyCFunction)PyEventLoop_call_soon,
+     METH_VARARGS | METH_KEYWORDS, "Schedule callback immediately"},
+    {"call_later", (PyCFunction)PyEventLoop_call_later,
+     METH_VARARGS | METH_KEYWORDS, "Schedule callback after delay seconds"},
+    {"time", (PyCFunction)PyEventLoop_time, METH_NOARGS,
+     "Return elapsed time since loop creation"},
+    {"run_once", (PyCFunction)PyEventLoop_run_once, METH_NOARGS,
+     "Run one ready callback"},
+    {"run_forever", (PyCFunction)PyEventLoop_run_forever, METH_NOARGS,
+     "Run until stop() is called"},
+    {"stop", (PyCFunction)PyEventLoop_stop, METH_NOARGS, "Stop the loop"},
+    {NULL, NULL, 0, NULL},
+};
+
+// type definition: registers EventLoop as a Python type
+static PyTypeObject PyEventLoop_Type = {
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0),
+    .tp_name = "_c_event_loop.EventLoop",
+    .tp_basicsize = sizeof(PyEventLoopObject),
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_new = PyEventLoop_new,
+    .tp_init = (initproc)PyEventLoop_init,
+    .tp_dealloc = (destructor)PyEventLoop_dealloc,
+    .tp_methods = PyEventLoop_methods,
+};
+
+// module definition
+static PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "_c_event_loop",
+    "C implementation of an asyncio-style event loop",
+    -1,
+    NULL,
+};
+
+// module entry point: called when Python does "import _c_event_loop"
+PyMODINIT_FUNC PyInit__c_event_loop(void) {
+  PyObject *m = PyModule_Create(&moduledef);
+  if (m == NULL)
+    return NULL;
+
+  if (PyType_Ready(&PyEventLoop_Type) < 0)
+    return NULL;
+
+  Py_INCREF(&PyEventLoop_Type);
+  if (PyModule_AddObject(m, "EventLoop", (PyObject *)&PyEventLoop_Type) < 0) {
+    Py_DECREF(&PyEventLoop_Type);
+    Py_DECREF(m);
+    return NULL;
+  }
+
+  return m;
+}
