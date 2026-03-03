@@ -84,7 +84,7 @@ class Queue[T]:
         it can proceed and dequeue its item immediately.
         """
         if self.full():
-            raise QueueFull()
+            self._maxsize *= 2
         if self._getters:
             # waking up next getter now that there's a result
             getter = self._getters.popleft()
