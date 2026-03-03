@@ -185,9 +185,9 @@ static PyObject *PyEventLoop_run_forever(PyEventLoopObject *self,
 
 // method table: maps Python method names to C functions
 static PyMethodDef PyEventLoop_methods[] = {
-    {"call_soon", (PyCFunction)PyEventLoop_call_soon,
+    {"call_soon", (PyCFunction)(PyCFunctionWithKeywords)PyEventLoop_call_soon,
      METH_VARARGS | METH_KEYWORDS, "Schedule callback immediately"},
-    {"call_later", (PyCFunction)PyEventLoop_call_later,
+    {"call_later", (PyCFunction)(PyCFunctionWithKeywords)PyEventLoop_call_later,
      METH_VARARGS | METH_KEYWORDS, "Schedule callback after delay seconds"},
     {"time", (PyCFunction)PyEventLoop_time, METH_NOARGS,
      "Return elapsed time since loop creation"},
@@ -201,7 +201,7 @@ static PyMethodDef PyEventLoop_methods[] = {
 
 // type definition: registers EventLoop as a Python type
 static PyTypeObject PyEventLoop_Type = {
-    .ob_base = PyVarObject_HEAD_INIT(NULL, 0),
+    PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = "_c_event_loop.EventLoop",
     .tp_basicsize = sizeof(PyEventLoopObject),
     .tp_flags = Py_TPFLAGS_DEFAULT,
